@@ -15,6 +15,12 @@ android {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
+        checkTypes {
+            javaCompileOptions.annotationProcessorOptions.
+                    classNames.add("org.checkerframework.checker.keystore.KeyStoreChecker")
+            // Uncomment to do the strongboxbacked checking.
+            // javaCompileOptions.annotationProcessorOptions.arguments.put("lint", "strongboxbacked")
+        }
     }
 
     android {
@@ -23,6 +29,19 @@ android {
             targetCompatibility 1.8
         }
     }
+}
+
+configurations {
+    checkerFrameworkAnnotatedJDK {
+        description = 'a copy of JDK classes with Checker Framework type qualifiers inserted'
+    }
+    errorproneJavac {
+        description = 'required to run the Checker Framework.'
+    }
+}
+
+repositories {
+    mavenLocal()
 }
 
 dependencies {
@@ -51,4 +70,23 @@ dependencies {
 
     testImplementation "junit:junit:$rootProject.ext.junitVersion"
     implementation "androidx.constraintlayout:constraintlayout:$rootProject.constraintLayout"
+
+    ext.checkerFrameworkVersion = '3.0.1'
+    annotationProcessor "org.checkerframework:keystore-checker:0.1-SNAPSHOT"
+    implementation files("../../../../keystore-checker-qual-android/build/libs/keystore-checker-qual-android.jar")
+    checkerFrameworkAnnotatedJDK "org.checkerframework:jdk8:${checkerFrameworkVersion}"
+    compileOnly "org.checkerframework:checker-qual-android:${checkerFrameworkVersion}"
+    errorproneJavac 'com.google.errorprone:javac:9+181-r4173-1'
+}
+
+gradle.projectsEvaluated {
+    tasks.withType(JavaCompile).all { compile ->
+        if (compile.name.contains("CheckTypes")) {
+//            compile.options.compilerArgs += [
+//                    "-Xbootclasspath/p:${configurations.checkerFrameworkAnnotatedJDK.asPath}"
+//            ]
+            options.fork = true
+            options.forkOptions.jvmArgs += ["-Xbootclasspath/p:${configurations.errorproneJavac.asPath}"]
+        }
+    }
 }
